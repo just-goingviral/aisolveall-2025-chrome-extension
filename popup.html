@@ -76,4 +76,44 @@
   <script src="api-keys-loader.js"></script>
   <script src="popup.js"></script>
 </body>
+</html> 20px;
+      border: 3px solid rgba(0,0,0,.3);
+      border-radius: 50%;
+      border-top-color: #4285f4;
+      animation: spin 1s ease-in-out infinite;
+      margin-left: 10px;
+    }
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+    .hidden {
+      display: none;
+    }
+  </style>
+</head>
+<body>
+  <h3>Aisolveall ChatGPT</h3>
+  
+  <select id="provider">
+    <option value="openai">OpenAI</option>
+    <option value="anthropic">Anthropic (placeholder)</option>
+    <option value="gemini">Gemini (placeholder)</option>
+    <option value="perplexity">Perplexity (placeholder)</option>
+  </select>
+  
+  <select id="model" class="openai-option">
+    <option value="gpt-3.5-turbo">GPT-3.5 Turbo</option>
+    <option value="gpt-4">GPT-4</option>
+  </select>
+  
+  <textarea id="prompt" placeholder="Your question..."></textarea>
+  <button id="send">Send</button>
+  <span id="loading" class="loading hidden"></span>
+  <div id="response"></div>
+  
+  <hr>
+  <button id="toggleSidebar">Toggle Sidebar</button>
+  
+  <script src="popup.js"></script>
+</body>
 </html>

@@ -1,68 +1,25 @@
-/**
- * Aisolveall Assistant Content Script
- * This script creates the floating button and sidebar for the Aisolveall Assistant
- * Chrome extension, providing a unified interface for multiple AI providers
- * and voice assistants.
- */
-
 (function() {
   // Global variables for API endpoints
   const ELEVENLABS_VOICES_ENDPOINT = "https://api.elevenlabs.io/v1/voices";
-  const OPENAI_ENDPOINT = "https://api.openai.com/v1/chat/completions";
-  const ANTHROPIC_ENDPOINT = "https://api.anthropic.com/v1/messages";
-  const GEMINI_ENDPOINT = "https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent";
-  const PERPLEXITY_ENDPOINT = "https://api.perplexity.ai/chat/completions";
 
   // Global variables for sidebar and audio
   let currentAudio = null; // For playing ElevenLabs TTS audio
   let activeProject = null; // Holds the currently selected project ID
   let sidebarVisible = false;
   let sidebarEl = null;
-  let apiKeysLoaded = false;
   
-  // Initialize the extension
-  async function initialize() {
-    try {
-      await loadApiKeys();
-      apiKeysLoaded = true;
-      console.log("Aisolveall Assistant content script loaded and API keys initialized.");
-      
-      // After keys are loaded, create the floating button
-      createFloatingButton();
-      
-      // Set up message listener
-      setupMessageListener();
-    } catch (error) {
-      console.error("Error initializing API keys:", error);
-      // Still setup basic UI with warning about missing keys
-      createFloatingButton();
-      setupMessageListener();
-    }
-  }
-  
-  // Load API keys from storage
-  async function loadApiKeys() {
-    try {
-      const response = await fetch(chrome.runtime.getURL('api-keys.json'));
-      if (!response.ok) {
-        throw new Error(`Failed to load API keys: ${response.status} ${response.statusText}`);
-      }
-      
-      API_KEYS = await response.json();
-      console.log('API keys loaded successfully');
-      return API_KEYS;
-    } catch (error) {
-      console.error('Error loading API keys:', error);
-      // Provide empty object as fallback
-      API_KEYS = {};
-      return {};
-    }
-  }
-  
-  // Get an API key for the specified provider
-  function getApiKey(provider) {
-    return API_KEYS[provider] || null;
-  }
+  // Initialize by loading API keys
+  loadApiKeys().then(() => {
+    console.log("Aisolveall Assistant content script loaded and API keys initialized.");
+    
+    // After keys are loaded, create the floating button
+    createFloatingButton();
+    
+    // Set up message listener
+    setupMessageListener();
+  }).catch(error => {
+    console.error("Error initializing API keys:", error);
+  });
   
   // Create the floating button for toggling the sidebar
   function createFloatingButton() {
@@ -82,59 +39,14 @@
         background-color: #444 !important;
         color: #fff !important;
       }
-      .aisolveall-chat-history-item {
-        margin-bottom: 10px;
-        padding: 5px;
-        border-bottom: 1px solid #ccc;
-      }
-      .aisolveall-chat-history-prompt {
-        font-weight: bold;
-      }
-      .aisolveall-chat-history-response {
-        margin-top: 5px;
-      }
-      .aisolveall-button {
-        padding: 8px;
-        margin: 2px;
-        border: none;
-        border-radius: 4px;
-        cursor: pointer;
-        font-size: 14px;
-      }
-      .aisolveall-primary {
-        background-color: #4285f4;
-        color: white;
-      }
-      .aisolveall-secondary {
-        background-color: #5cb85c;
-        color: white;
-      }
-      .aisolveall-warning {
-        background-color: #f0ad4e;
-        color: white;
-      }
-      .aisolveall-danger {
-        background-color: #d9534f;
-        color: white;
-      }
     `;
     
-    // Remove any existing style elements to avoid duplication
-    const existingStyle = document.getElementById('aisolveall-style');
-    if (existingStyle) existingStyle.remove();
-    
     const styleEl = document.createElement("style");
-    styleEl.id = 'aisolveall-style';
     styleEl.textContent = darkModeCSS;
     document.head.appendChild(styleEl);
     
-    // Remove any existing buttons to avoid duplication
-    const existingButton = document.getElementById('aisolveall-chat-button');
-    if (existingButton) existingButton.remove();
-    
     // === Create Floating Chat Button ===
     const chatButton = document.createElement("button");
-    chatButton.id = 'aisolveall-chat-button';
     chatButton.textContent = "Aisolveall Chat";
     chatButton.style.position = "fixed";
     chatButton.style.bottom = "10px";
@@ -146,19 +58,9 @@
     chatButton.style.border = "none";
     chatButton.style.borderRadius = "5px";
     chatButton.style.cursor = "pointer";
-    chatButton.style.boxShadow = "0 2px 5px rgba(0,0,0,0.2)";
     chatButton.setAttribute("aria-label", "Toggle Chat Sidebar");
-    chatButton.setAttribute("role", "button");
     chatButton.tabIndex = 0;
     document.body.appendChild(chatButton);
-    
-    // Add keyboard accessibility
-    chatButton.addEventListener("keydown", (e) => {
-      if (e.key === "Enter" || e.key === " ") {
-        e.preventDefault();
-        toggleSidebar();
-      }
-    });
     
     chatButton.addEventListener("click", () => {
       console.log("Chat button clicked.");
@@ -173,18 +75,11 @@
       
       if (message.action === "toggleSidebar") {
         toggleSidebar();
-        sendResponse({success: true});
-        return true;
       }
       
       if (message.action === "summarize" && message.selectedText) {
         openSidebarWithPrompt(`Summarize this article:\n\n${message.selectedText}`);
-        sendResponse({success: true});
-        return true;
       }
-      
-      sendResponse({success: false, error: "Unknown action"});
-      return true;
     });
   }
   
@@ -193,11 +88,7 @@
     try {
       if (sidebarVisible) {
         console.log("Hiding sidebar.");
-        if (sidebarEl) {
-          // Clean up event listeners before removing
-          cleanupSidebarEventListeners();
-          sidebarEl.remove();
-        }
+        if (sidebarEl) sidebarEl.remove();
         sidebarVisible = false;
       } else {
         console.log("Showing sidebar.");
@@ -208,18 +99,6 @@
       console.error("Error toggling sidebar:", error);
       alert("Error toggling sidebar: " + error.message);
     }
-  }
-  
-  // Clean up event listeners when removing the sidebar
-  function cleanupSidebarEventListeners() {
-    // Stop any playing audio
-    if (currentAudio) {
-      currentAudio.pause();
-      currentAudio = null;
-    }
-    
-    // We don't need to manually remove event listeners from elements being removed
-    // as they will be garbage collected, but we could do manual cleanup for complex cases
   }
   
   // === Open Sidebar and Pre-Populate Prompt ===
@@ -240,11 +119,6 @@
   // === Create Sidebar UI ===
   function createSidebar() {
     try {
-      // Check if there's already a sidebar
-      if (document.getElementById("aisolveall-sidebar")) {
-        document.getElementById("aisolveall-sidebar").remove();
-      }
-      
       // Main container for the sidebar
       sidebarEl = document.createElement("div");
       sidebarEl.id = "aisolveall-sidebar";
@@ -279,22 +153,18 @@
       
       const closeBtn = document.createElement("button");
       closeBtn.textContent = "X";
-      closeBtn.className = "aisolveall-button aisolveall-danger";
+      closeBtn.style.background = "#d9534f";
+      closeBtn.style.border = "none";
+      closeBtn.style.color = "#fff";
+      closeBtn.style.cursor = "pointer";
+      closeBtn.style.padding = "2px 8px";
+      closeBtn.style.borderRadius = "4px";
       closeBtn.setAttribute("aria-label", "Close Chat Sidebar");
-      closeBtn.setAttribute("role", "button");
       closeBtn.tabIndex = 0;
       
       closeBtn.addEventListener("click", () => {
         console.log("Close button clicked.");
         toggleSidebar();
-      });
-      
-      // Add keyboard accessibility
-      closeBtn.addEventListener("keydown", (e) => {
-        if (e.key === "Enter" || e.key === " ") {
-          e.preventDefault();
-          toggleSidebar();
-        }
       });
       
       header.appendChild(closeBtn);
@@ -303,12 +173,14 @@
       // === Dark Mode Toggle ===
       const darkModeToggle = document.createElement("button");
       darkModeToggle.textContent = "Toggle Dark Mode";
-      darkModeToggle.className = "aisolveall-button";
       darkModeToggle.style.width = "100%";
+      darkModeToggle.style.padding = "8px";
+      darkModeToggle.style.margin = "10px 0";
       darkModeToggle.style.backgroundColor = "#333";
+      darkModeToggle.style.border = "none";
       darkModeToggle.style.color = "#fff";
-      darkModeToggle.setAttribute("aria-label", "Toggle Dark Mode");
-      darkModeToggle.setAttribute("role", "button");
+      darkModeToggle.style.borderRadius = "4px";
+      darkModeToggle.style.cursor = "pointer";
       darkModeToggle.tabIndex = 0;
       
       sidebarEl.appendChild(darkModeToggle);
@@ -319,18 +191,6 @@
       });
       
       sidebarEl.appendChild(document.createElement("hr"));
-      
-      // === Show API Keys Status ===
-      if (!apiKeysLoaded) {
-        const keyWarning = document.createElement("div");
-        keyWarning.style.padding = "10px";
-        keyWarning.style.marginBottom = "10px";
-        keyWarning.style.backgroundColor = "#fff3cd";
-        keyWarning.style.borderRadius = "4px";
-        keyWarning.style.color = "#856404";
-        keyWarning.textContent = "Warning: API keys not loaded. Some features may not work properly.";
-        sidebarEl.appendChild(keyWarning);
-      }
       
       // === Provider & Model Selection Section ===
       const providerSection = document.createElement("div");
@@ -372,8 +232,7 @@
       
       const openaiModels = [
         { value: "gpt-3.5-turbo", label: "GPT-3.5 Turbo" },
-        { value: "gpt-4", label: "GPT-4" },
-        { value: "gpt-4-turbo", label: "GPT-4 Turbo" }
+        { value: "gpt-4", label: "GPT-4" }
       ];
       
       openaiModels.forEach(m => {
@@ -414,38 +273,25 @@
       // Button to create a new project
       const createProjectBtn = document.createElement("button");
       createProjectBtn.textContent = "Create New Project";
-      createProjectBtn.className = "aisolveall-button aisolveall-secondary";
       createProjectBtn.style.width = "100%";
-      createProjectBtn.setAttribute("aria-label", "Create New Project");
-      createProjectBtn.setAttribute("role", "button");
+      createProjectBtn.style.padding = "8px";
+      createProjectBtn.style.backgroundColor = "#5cb85c";
+      createProjectBtn.style.border = "none";
+      createProjectBtn.style.color = "#fff";
+      createProjectBtn.style.borderRadius = "4px";
+      createProjectBtn.style.cursor = "pointer";
       createProjectBtn.tabIndex = 0;
       projectSection.appendChild(createProjectBtn);
       
       sidebarEl.appendChild(projectSection);
       
       // Load existing projects from storage
-      loadProjects().then(projects => {
-        console.log("Projects loaded:", projects);
-        populateProjectSelect(projectSelect, projects);
-      }).catch(error => {
-        console.error("Error loading projects:", error);
-      });
+      loadProjects();
       
       createProjectBtn.addEventListener("click", () => {
         const projectName = prompt("Enter a new project name:");
         if (projectName) {
-          createNewProject(projectName).then(projectId => {
-            activeProject = projectId;
-            // Reload projects list
-            loadProjects().then(projects => {
-              populateProjectSelect(projectSelect, projects);
-              // Select newly created project
-              projectSelect.value = projectId;
-            });
-          }).catch(error => {
-            console.error("Error creating project:", error);
-            alert("Error creating project: " + error.message);
-          });
+          createNewProject(projectName);
         }
       });
       
@@ -491,10 +337,6 @@
         if (promptArea && presetSelect.value) {
           promptArea.value = presetSelect.value + "\n\n";
           console.log("Preset prompt selected:", presetSelect.value);
-          // Reset the select back to default after selection
-          setTimeout(() => {
-            presetSelect.selectedIndex = 0;
-          }, 100);
         }
       });
       
@@ -524,7 +366,6 @@
       stabilityInput.placeholder = "Stability (0-1)";
       stabilityInput.style.width = "48%";
       stabilityInput.style.marginRight = "4%";
-      stabilityInput.setAttribute("aria-label", "Stability");
       stabilityInput.tabIndex = 0;
       voiceSection.appendChild(stabilityInput);
       
@@ -536,7 +377,6 @@
       similarityInput.value = "0.75";
       similarityInput.placeholder = "Similarity Boost (0-1)";
       similarityInput.style.width = "48%";
-      similarityInput.setAttribute("aria-label", "Similarity Boost");
       similarityInput.tabIndex = 0;
       voiceSection.appendChild(similarityInput);
       
@@ -544,32 +384,41 @@
       const playVoiceBtn = document.createElement("button");
       playVoiceBtn.id = "playVoice";
       playVoiceBtn.textContent = "Play Voice";
-      playVoiceBtn.className = "aisolveall-button aisolveall-primary";
       playVoiceBtn.style.width = "30%";
       playVoiceBtn.style.marginRight = "3%";
-      playVoiceBtn.setAttribute("aria-label", "Play Response with Voice");
-      playVoiceBtn.setAttribute("role", "button");
+      playVoiceBtn.style.padding = "8px";
+      playVoiceBtn.style.backgroundColor = "#4285f4";
+      playVoiceBtn.style.border = "none";
+      playVoiceBtn.style.color = "#fff";
+      playVoiceBtn.style.borderRadius = "4px";
+      playVoiceBtn.style.cursor = "pointer";
       playVoiceBtn.tabIndex = 0;
       voiceSection.appendChild(playVoiceBtn);
       
       const stopVoiceBtn = document.createElement("button");
       stopVoiceBtn.id = "stopVoice";
       stopVoiceBtn.textContent = "Stop Voice";
-      stopVoiceBtn.className = "aisolveall-button aisolveall-warning";
       stopVoiceBtn.style.width = "30%";
       stopVoiceBtn.style.marginRight = "3%";
-      stopVoiceBtn.setAttribute("aria-label", "Stop Voice Playback");
-      stopVoiceBtn.setAttribute("role", "button");
+      stopVoiceBtn.style.padding = "8px";
+      stopVoiceBtn.style.backgroundColor = "#f0ad4e";
+      stopVoiceBtn.style.border = "none";
+      stopVoiceBtn.style.color = "#fff";
+      stopVoiceBtn.style.borderRadius = "4px";
+      stopVoiceBtn.style.cursor = "pointer";
       stopVoiceBtn.tabIndex = 0;
       voiceSection.appendChild(stopVoiceBtn);
       
       const cloneVoiceBtn = document.createElement("button");
       cloneVoiceBtn.id = "cloneVoice";
       cloneVoiceBtn.textContent = "Clone Voice";
-      cloneVoiceBtn.className = "aisolveall-button aisolveall-secondary";
       cloneVoiceBtn.style.width = "30%";
-      cloneVoiceBtn.setAttribute("aria-label", "Clone Your Voice");
-      cloneVoiceBtn.setAttribute("role", "button");
+      cloneVoiceBtn.style.padding = "8px";
+      cloneVoiceBtn.style.backgroundColor = "#5cb85c";
+      cloneVoiceBtn.style.border = "none";
+      cloneVoiceBtn.style.color = "#fff";
+      cloneVoiceBtn.style.borderRadius = "4px";
+      cloneVoiceBtn.style.cursor = "pointer";
       cloneVoiceBtn.tabIndex = 0;
       voiceSection.appendChild(cloneVoiceBtn);
       
@@ -579,7 +428,6 @@
       ttsSpinner.textContent = "⏳";
       ttsSpinner.style.display = "none";
       ttsSpinner.style.marginLeft = "5px";
-      ttsSpinner.setAttribute("aria-hidden", "true");
       voiceSection.appendChild(ttsSpinner);
       
       sidebarEl.appendChild(voiceSection);
@@ -591,7 +439,6 @@
       promptArea.style.width = "100%";
       promptArea.style.height = "80px";
       promptArea.style.marginBottom = "10px";
-      promptArea.setAttribute("aria-label", "Prompt Text Area");
       promptArea.tabIndex = 0;
       sidebarEl.appendChild(promptArea);
       
@@ -605,21 +452,16 @@
       const voiceInputBtn = document.createElement("button");
       voiceInputBtn.id = "voiceInput";
       voiceInputBtn.textContent = "🎤";
-      voiceInputBtn.className = "aisolveall-button";
       voiceInputBtn.title = "Voice Input";
       voiceInputBtn.style.flex = "1";
-      voiceInputBtn.setAttribute("aria-label", "Activate Voice Input");
-      voiceInputBtn.setAttribute("role", "button");
       voiceInputBtn.tabIndex = 0;
+      voiceInputBtn.setAttribute("aria-label", "Activate Voice Input");
       btnRow.appendChild(voiceInputBtn);
       
       const useSelBtn = document.createElement("button");
       useSelBtn.id = "useSelected";
       useSelBtn.textContent = "Use Selected Text";
-      useSelBtn.className = "aisolveall-button";
       useSelBtn.style.flex = "2";
-      useSelBtn.setAttribute("aria-label", "Use Selected Text");
-      useSelBtn.setAttribute("role", "button");
       useSelBtn.tabIndex = 0;
       btnRow.appendChild(useSelBtn);
       
@@ -628,10 +470,7 @@
         const emailReplyBtn = document.createElement("button");
         emailReplyBtn.id = "emailReply";
         emailReplyBtn.textContent = "Generate Email Reply";
-        emailReplyBtn.className = "aisolveall-button";
         emailReplyBtn.style.flex = "2";
-        emailReplyBtn.setAttribute("aria-label", "Generate Email Reply");
-        emailReplyBtn.setAttribute("role", "button");
         emailReplyBtn.tabIndex = 0;
         btnRow.appendChild(emailReplyBtn);
         
@@ -653,31 +492,24 @@
         const applyInlineBtn = document.createElement("button");
         applyInlineBtn.id = "applyInline";
         applyInlineBtn.textContent = "Apply Inline";
-        applyInlineBtn.className = "aisolveall-button";
         applyInlineBtn.style.flex = "2";
-        applyInlineBtn.setAttribute("aria-label", "Apply to Document");
-        applyInlineBtn.setAttribute("role", "button");
         applyInlineBtn.tabIndex = 0;
         btnRow.appendChild(applyInlineBtn);
         
-        applyInlineBtn.addEventListener("click", async () => {
+        applyInlineBtn.addEventListener("click", () => {
           try {
             console.log("Apply Inline button clicked.");
             const docId = extractDocIdFromUrl(window.location.href);
             if (docId) {
-              try {
-                // Make sure Google API client is loaded and initialized
-                if (typeof gapi === 'undefined' || !gapi.client) {
-                  await initGoogleApiClient();
-                }
-                
-                await updateGoogleDoc(docId, document.getElementById("aiResponse").textContent);
-                console.log("Google Doc updated successfully.");
-                alert("Google Doc updated.");
-              } catch (err) {
-                console.error("Error updating Google Doc:", err);
-                alert("Error updating Google Doc: " + err.message);
-              }
+              updateGoogleDoc(docId, document.getElementById("aiResponse").textContent)
+                .then(() => {
+                  console.log("Google Doc updated successfully.");
+                  alert("Google Doc updated.");
+                })
+                .catch(err => {
+                  console.error("Error updating Google Doc:", err);
+                  alert("Error updating Google Doc: " + err.message);
+                });
             } else {
               alert("Could not extract Document ID.");
             }
@@ -694,10 +526,13 @@
       const sendBtn = document.createElement("button");
       sendBtn.id = "sendPrompt";
       sendBtn.textContent = "Send";
-      sendBtn.className = "aisolveall-button aisolveall-primary";
       sendBtn.style.width = "100%";
-      sendBtn.setAttribute("aria-label", "Send Prompt");
-      sendBtn.setAttribute("role", "button");
+      sendBtn.style.padding = "8px";
+      sendBtn.style.backgroundColor = "#4285f4";
+      sendBtn.style.border = "none";
+      sendBtn.style.color = "#fff";
+      sendBtn.style.borderRadius = "4px";
+      sendBtn.style.cursor = "pointer";
       sendBtn.tabIndex = 0;
       sidebarEl.appendChild(sendBtn);
       
@@ -708,19 +543,20 @@
       responseDiv.style.whiteSpace = "pre-wrap";
       responseDiv.style.borderTop = "1px solid #ccc";
       responseDiv.style.paddingTop = "10px";
-      responseDiv.setAttribute("aria-live", "polite");
       sidebarEl.appendChild(responseDiv);
       
       // === Chat History Section (Global) ===
       const historyToggleBtn = document.createElement("button");
       historyToggleBtn.id = "toggleHistory";
       historyToggleBtn.textContent = "History";
-      historyToggleBtn.className = "aisolveall-button aisolveall-secondary";
       historyToggleBtn.style.width = "100%";
       historyToggleBtn.style.marginTop = "10px";
-      historyToggleBtn.setAttribute("aria-label", "Toggle Chat History");
-      historyToggleBtn.setAttribute("aria-expanded", "false");
-      historyToggleBtn.setAttribute("role", "button");
+      historyToggleBtn.style.padding = "8px";
+      historyToggleBtn.style.backgroundColor = "#5cb85c";
+      historyToggleBtn.style.border = "none";
+      historyToggleBtn.style.color = "#fff";
+      historyToggleBtn.style.borderRadius = "4px";
+      historyToggleBtn.style.cursor = "pointer";
       historyToggleBtn.tabIndex = 0;
       sidebarEl.appendChild(historyToggleBtn);
       
@@ -757,7 +593,6 @@
           
           console.log("Sending prompt:", promptText);
           responseDiv.textContent = "Loading...";
-          responseDiv.setAttribute("aria-busy", "true");
           
           // Determine the selected provider and model (if applicable)
           const provider = providerSelect.value;
@@ -768,28 +603,19 @@
           }
           
           // Send the prompt using the selected provider
-          try {
-            const reply = await sendQueryToProvider(provider, promptText, model);
-            
-            responseDiv.textContent = reply;
-            responseDiv.setAttribute("aria-busy", "false");
-            console.log("Received response:", reply.substring(0, 100) + "...");
-            
-            // Save to chat history
-            await saveChatHistory(promptArea.value.trim(), reply);
-            
-            if (activeProject) {
-              await appendProjectHistory(activeProject, promptArea.value.trim(), reply);
-            }
-          } catch (error) {
-            console.error("Error sending prompt:", error);
-            responseDiv.textContent = "Error: " + error.message;
-            responseDiv.setAttribute("aria-busy", "false");
+          const reply = await sendQueryToProvider(provider, promptText, model);
+          
+          responseDiv.textContent = reply;
+          console.log("Received response:", reply);
+          
+          saveChatHistory(promptArea.value.trim(), reply);
+          
+          if (activeProject) {
+            appendProjectHistory(activeProject, promptArea.value.trim(), reply);
           }
         } catch (error) {
-          console.error("Error in send button click handler:", error);
+          console.error("Error sending prompt:", error);
           responseDiv.textContent = "Error: " + error.message;
-          responseDiv.setAttribute("aria-busy", "false");
         }
       });
       
@@ -815,69 +641,37 @@
             return;
           }
           
-          // Show visual indication that voice input is active
-          voiceInputBtn.textContent = "🔴 Recording...";
-          voiceInputBtn.style.backgroundColor = "#d9534f";
-          
           const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
           const recognition = new SpeechRecognition();
           recognition.lang = "en-US";
-          recognition.continuous = false;
-          recognition.interimResults = false;
-          
           recognition.start();
           
           recognition.onresult = (event) => {
             const transcript = event.results[0][0].transcript;
             promptArea.value += transcript;
             console.log("Voice input recognized:", transcript);
-            
-            // Reset button appearance
-            voiceInputBtn.textContent = "🎤";
-            voiceInputBtn.style.backgroundColor = "";
           };
           
           recognition.onerror = (err) => {
             console.error("Speech recognition error:", err);
-            
-            // Reset button appearance
-            voiceInputBtn.textContent = "🎤";
-            voiceInputBtn.style.backgroundColor = "";
-            
-            alert("Speech recognition error: " + err.error);
-          };
-          
-          recognition.onend = () => {
-            // Reset button appearance
-            voiceInputBtn.textContent = "🎤";
-            voiceInputBtn.style.backgroundColor = "";
           };
         } catch (error) {
           console.error("Error initializing voice input:", error);
-          
-          // Reset button appearance
-          voiceInputBtn.textContent = "🎤";
-          voiceInputBtn.style.backgroundColor = "";
-          
-          alert("Error initializing voice input: " + error.message);
         }
       });
       
-      historyToggleBtn.addEventListener("click", async () => {
+      historyToggleBtn.addEventListener("click", () => {
         try {
           if (historyDiv.style.display === "none") {
-            await loadChatHistory();
+            loadChatHistory();
             historyDiv.style.display = "block";
-            historyToggleBtn.setAttribute("aria-expanded", "true");
             console.log("Chat history displayed.");
           } else {
             historyDiv.style.display = "none";
-            historyToggleBtn.setAttribute("aria-expanded", "false");
             console.log("Chat history hidden.");
           }
         } catch (error) {
           console.error("Error toggling chat history:", error);
-          alert("Error loading chat history: " + error.message);
         }
       });
       
@@ -886,14 +680,12 @@
           console.log("Play Voice button clicked.");
           const responseText = responseDiv.textContent;
           
-          if (!responseText || responseText === "Loading...") {
+          if (!responseText) {
             alert("No response available to play.");
             return;
           }
           
-          // Show loading spinner
           ttsSpinner.style.display = "inline";
-          playVoiceBtn.disabled = true;
           
           const sanitizedText = sanitizeTextForVoice(responseText);
           const selectedVoiceId = voiceSelect.value;
@@ -901,7 +693,6 @@
           if (!selectedVoiceId) {
             alert("Please select a voice from the dropdown.");
             ttsSpinner.style.display = "none";
-            playVoiceBtn.disabled = false;
             return;
           }
           
@@ -911,16 +702,10 @@
           const similarityBoost = parseFloat(similarityInput.value) || 0.75;
           
           // Get the API key using the function from api-keys-loader.js
-          const elevenlabsKey = getApiKey('elevenlabs');
+          const elevenlabsKey = await getApiKey('elevenlabs');
           
           if (!elevenlabsKey) {
-            throw new Error("ElevenLabs API key not found. Please check api-keys.json file.");
-          }
-          
-          // Stop any currently playing audio
-          if (currentAudio) {
-            currentAudio.pause();
-            currentAudio = null;
+            throw new Error("ElevenLabs API key not found");
           }
           
           const ttsResponse = await fetch(`https://api.elevenlabs.io/v1/text-to-speech/${selectedVoiceId}?optimize_streaming_latency=0`, {
@@ -939,7 +724,7 @@
           });
           
           if (!ttsResponse.ok) {
-            throw new Error(`Error from ElevenLabs: ${ttsResponse.status} ${ttsResponse.statusText}`);
+            throw new Error("Error from ElevenLabs: " + ttsResponse.statusText);
           }
           
           const audioBlob = await ttsResponse.blob();
@@ -948,21 +733,12 @@
           console.log("Received audio blob from ElevenLabs. Playing audio...");
           
           currentAudio = new Audio(audioUrl);
-          
-          // Clean up when audio finishes
-          currentAudio.onended = () => {
-            URL.revokeObjectURL(audioUrl); // Clean up the blob URL
-            currentAudio = null;
-          };
-          
           currentAudio.play();
           
           ttsSpinner.style.display = "none";
-          playVoiceBtn.disabled = false;
         } catch (err) {
           console.error("Error fetching voice audio:", err);
           ttsSpinner.style.display = "none";
-          playVoiceBtn.disabled = false;
           alert("Error fetching voice audio: " + err.message);
         }
       });
@@ -973,10 +749,9 @@
           if (currentAudio) {
             currentAudio.pause();
             currentAudio.currentTime = 0;
-            currentAudio = null;
             console.log("Audio stopped.");
           } else {
-            console.log("No audio is currently playing.");
+            alert("No audio is currently playing.");
           }
         } catch (error) {
           console.error("Error stopping audio:", error);
@@ -986,19 +761,11 @@
       
       cloneVoiceBtn.addEventListener("click", () => {
         console.log("Clone Voice button clicked.");
-        alert("Voice cloning requires ElevenLabs Professional subscription. This feature will be available in a future update.");
+        alert("Voice cloning functionality is not implemented in this demo.");
       });
       
       // Initialize ElevenLabs voice dropdown
-      fetchElevenLabsVoices(voiceSelect).catch(error => {
-        console.error("Error fetching ElevenLabs voices:", error);
-        
-        // Add a default option in case fetching fails
-        const defaultOpt = document.createElement("option");
-        defaultOpt.value = "21m00Tcm4TlvDq8ikWAM"; // Rachel voice ID
-        defaultOpt.textContent = "Rachel (Default)";
-        voiceSelect.appendChild(defaultOpt);
-      });
+      fetchElevenLabsVoices(voiceSelect);
       
     } catch (error) {
       console.error("Error creating sidebar:", error);
@@ -1006,1006 +773,12 @@
     }
   }
   
-  /**
-   * Sanitizes text for sending to ElevenLabs TTS
-   * @param {string} text - The text to sanitize
-   * @returns {string} Sanitized text
-   */
-  function sanitizeTextForVoice(text) {
-    if (!text) return "";
-    
-    // Limit text length to avoid large API requests
-    const MAX_CHARS = 5000;
-    let sanitized = text;
-    
-    if (sanitized.length > MAX_CHARS) {
-      sanitized = sanitized.substring(0, MAX_CHARS) + "... [Text truncated due to length]";
-    }
-    
-    // Remove special characters/markdown that might cause issues
-    sanitized = sanitized
-      .replace(/```[\s\S]*?```/g, "Code block removed for voice.") // Remove code blocks
-      .replace(/`.*?`/g, "") // Remove inline code
-      .replace(/\[.*?\]\(.*?\)/g, "") // Remove markdown links
-      .replace(/\*\*/g, "") // Remove bold markdown
-      .replace(/\*/g, "") // Remove italic markdown
-      .replace(/#{1,6}\s/g, "") // Remove heading markers
-      .replace(/\n\s*[-*+]\s/g, "\n") // Remove list markers
-      .replace(/\n\s*\d+\.\s/g, "\n") // Remove numbered list markers
-      .replace(/\s{2,}/g, " ") // Compress multiple spaces
-      .trim();
-    
-    return sanitized;
-  }
-  
-  /**
-   * Fetches available voices from ElevenLabs API
-   * @param {HTMLSelectElement} voiceSelect - The select element to populate
-   * @returns {Promise<void>}
-   */
-  async function fetchElevenLabsVoices(voiceSelect) {
-    try {
-      const elevenlabsKey = getApiKey('elevenlabs');
-      
-      if (!elevenlabsKey) {
-        throw new Error("ElevenLabs API key not found");
-      }
-      
-      const response = await fetch(ELEVENLABS_VOICES_ENDPOINT, {
-        method: "GET",
-        headers: {
-          "xi-api-key": elevenlabsKey
-        }
-      });
-      
-      if (!response.ok) {
-        throw new Error(`Failed to fetch voices: ${response.status} ${response.statusText}`);
-      }
-      
-      const data = await response.json();
-      
-      // Clear existing options
-      while (voiceSelect.firstChild) {
-        voiceSelect.removeChild(voiceSelect.firstChild);
-      }
-      
-      // Add a default empty option
-      const emptyOpt = document.createElement("option");
-      emptyOpt.value = "";
-      emptyOpt.textContent = "-- Select a voice --";
-      voiceSelect.appendChild(emptyOpt);
-      
-      // Add voices from API
-      if (data.voices && Array.isArray(data.voices)) {
-        data.voices.forEach(voice => {
-          const opt = document.createElement("option");
-          opt.value = voice.voice_id;
-          opt.textContent = voice.name;
-          voiceSelect.appendChild(opt);
-        });
-        
-        console.log(`Loaded ${data.voices.length} voices from ElevenLabs`);
-      } else {
-        console.warn("No voices found in ElevenLabs response:", data);
-      }
-    } catch (error) {
-      console.error("Error fetching ElevenLabs voices:", error);
-      throw error;
-    }
-  }
-  
-  /**
-   * Extracts document ID from a Google Docs URL
-   * @param {string} url - The URL to extract from
-   * @returns {string|null} The document ID or null if not found
-   */
-  function extractDocIdFromUrl(url) {
-    try {
-      const match = url.match(/\/document\/d\/([a-zA-Z0-9-_]+)/);
-      return match ? match[1] : null;
-    } catch (e) {
-      console.error("Error extracting document ID:", e);
-      return null;
-    }
-  }
-  
-  /**
-   * Updates a Google Doc with the specified content
-   * This requires the Google Docs API to be initialized
-   * @param {string} documentId - The ID of the Google Doc
-   * @param {string} content - The content to insert
-   * @returns {Promise<any>} Result of the API call
-   */
-  async function updateGoogleDoc(documentId, content) {
-    try {
-      // This function should be imported from sample-docs.js
-      // For compatibility, we're implementing it here as well
-      if (typeof gapi === 'undefined' || !gapi.client || !gapi.client.docs) {
-        throw new Error("Google API client not initialized. Please refresh the page and try again.");
-      }
-      
-      const response = await gapi.client.docs.documents.batchUpdate({
-        documentId: documentId,
-        requests: [
-          {
-            insertText: {
-              location: { index: 1 },
-              text: content
-            }
-          }
-        ]
-      });
-      
-      console.log("Google Doc updated:", response);
-      return response;
-    } catch (error) {
-      console.error("Error updating Google Doc:", error);
-      throw error;
-    }
-  }
-  
-  /**
-   * Initializes the Google API client
-   * @returns {Promise<void>}
-   */
-  async function initGoogleApiClient() {
-    return new Promise((resolve, reject) => {
-      try {
-        // Check if gapi is loaded
-        if (typeof gapi === 'undefined') {
-          reject(new Error("Google API client not loaded. Please refresh the page and try again."));
-          return;
-        }
-        
-        gapi.load('client', async () => {
-          try {
-            await gapi.client.init({
-              apiKey: getApiKey('google') || 'YOUR_API_KEY', // Fallback to placeholder
-              clientId: 'YOUR_CLIENT_ID', // This should be replaced in production
-              discoveryDocs: ['https://docs.googleapis.com/$discovery/rest?version=v1'],
-              scope: 'https://www.googleapis.com/auth/documents'
-            });
-            
-            resolve();
-          } catch (error) {
-            console.error('Error initializing Google API client:', error);
-            reject(error);
-          }
-        });
-      } catch (error) {
-        console.error('Error loading Google API client:', error);
-        reject(error);
-      }
-    });
-  }
-  
-  /**
-   * Loads projects from storage
-   * @returns {Promise<Array>} Array of projects
-   */
-  // === Project Management Functions ===
-
-// Load existing projects
-async function loadProjects() {
-  try {
-    const projectSelect = document.getElementById('projectSelect');
-    
-    // Clear existing options
-    projectSelect.innerHTML = '';
-    
-    // Add default option
-    const defaultOpt = document.createElement('option');
-    defaultOpt.value = '';
-    defaultOpt.textContent = '-- No Project Selected --';
-    projectSelect.appendChild(defaultOpt);
-    
-    // Load projects from storage
-    chrome.storage.local.get('projects', function(result) {
-      const projects = result.projects || [];
-      
-      projects.forEach(project => {
-        const opt = document.createElement('option');
-        opt.value = project.id;
-        opt.textContent = project.name;
-        projectSelect.appendChild(opt);
-      });
-      
-      console.log(`Loaded ${projects.length} projects.`);
-      
-      // Set active project if one was previously selected
-      chrome.storage.local.get('activeProject', function(result) {
-        if (result.activeProject) {
-          projectSelect.value = result.activeProject;
-          activeProject = result.activeProject;
-        }
-      });
-    });
-  } catch (error) {
-    console.error('Error loading projects:', error);
-  }
-}
-
-// Create a new project
-function createNewProject(projectName) {
-  try {
-    const projectId = 'project_' + Date.now();
-    
-    chrome.storage.local.get('projects', function(result) {
-      const projects = result.projects || [];
-      
-      // Add new project
-      projects.push({
-        id: projectId,
-        name: projectName,
-        created: new Date().toISOString(),
-        history: []
-      });
-      
-      // Save updated projects list
-      chrome.storage.local.set({projects: projects}, function() {
-        console.log('Project created:', projectName);
-        
-        // Update projects dropdown
-        loadProjects();
-        
-        // Set as active project
-        activeProject = projectId;
-        chrome.storage.local.set({activeProject: projectId});
-        
-        // Update dropdown selection
-        const projectSelect = document.getElementById('projectSelect');
-        projectSelect.value = projectId;
-      });
-    });
-  } catch (error) {
-    console.error('Error creating project:', error);
-  }
-}
-
-// Get project context (previous chat history)
-function getProjectContext(projectId) {
-  return new Promise((resolve, reject) => {
-    try {
-      chrome.storage.local.get('projects', function(result) {
-        const projects = result.projects || [];
-        const project = projects.find(p => p.id === projectId);
-        
-        if (!project) {
-          resolve(''); // No context if project not found
-          return;
-        }
-        
-        // Format context from history
-        let context = `PROJECT CONTEXT: ${project.name}\n\n`;
-        
-        // Get last 5 entries or fewer
-        const recentHistory = project.history.slice(-5);
-        
-        recentHistory.forEach((entry, index) => {
-          context += `User: ${entry.prompt}\n`;
-          context += `Assistant: ${entry.response}\n\n`;
-        });
-        
-        resolve(context);
-      });
-    } catch (error) {
-      console.error('Error getting project context:', error);
-      reject(error);
-    }
-  });
-}
-
-// Append to project history
-function appendProjectHistory(projectId, prompt, response) {
-  try {
-    chrome.storage.local.get('projects', function(result) {
-      const projects = result.projects || [];
-      const projectIndex = projects.findIndex(p => p.id === projectId);
-      
-      if (projectIndex === -1) {
-        console.error('Project not found:', projectId);
-        return;
-      }
-      
-      // Add to history
-      projects[projectIndex].history.push({
-        prompt: prompt,
-        response: response,
-        timestamp: new Date().toISOString()
-      });
-      
-      // Save updated projects
-      chrome.storage.local.set({projects: projects}, function() {
-        console.log('Project history updated:', projectId);
-      });
-    });
-  } catch (error) {
-    console.error('Error appending project history:', error);
-  }
-}
-
-// Save chat history (global)
-function saveChatHistory(prompt, response) {
-  try {
-    chrome.storage.local.get('chatHistory', function(result) {
-      const history = result.chatHistory || [];
-      
-      // Add new entry
-      history.push({
-        prompt: prompt,
-        response: response,
-        timestamp: new Date().toISOString()
-      });
-      
-      // Keep only the last 100 entries
-      if (history.length > 100) {
-        history.shift();
-      }
-      
-      // Save updated history
-      chrome.storage.local.set({chatHistory: history}, function() {
-        console.log('Chat history saved.');
-      });
-    });
-  } catch (error) {
-    console.error('Error saving chat history:', error);
-  }
-}
-
-// Load chat history (global)
-function loadChatHistory() {
-  try {
-    const historyDiv = document.getElementById('chatHistory');
-    
-    // Clear existing history
-    historyDiv.innerHTML = '';
-    
-    chrome.storage.local.get('chatHistory', function(result) {
-      const history = result.chatHistory || [];
-      
-      if (history.length === 0) {
-        historyDiv.textContent = 'No chat history yet.';
-        return;
-      }
-      
-      // Display last 20 entries in reverse order (newest first)
-      const recentHistory = history.slice(-20).reverse();
-      
-      recentHistory.forEach((entry, index) => {
-        // Create container for this chat entry
-        const entryDiv = document.createElement('div');
-        entryDiv.className = 'history-entry';
-        entryDiv.style.marginBottom = '10px';
-        entryDiv.style.borderBottom = '1px solid #ccc';
-        entryDiv.style.paddingBottom = '10px';
-        
-        // Format timestamp
-        const timestamp = new Date(entry.timestamp);
-        const formattedTime = timestamp.toLocaleString();
-        
-        // Create prompt element
-        const promptDiv = document.createElement('div');
-        promptDiv.className = 'history-prompt';
-        promptDiv.textContent = `Q: ${entry.prompt}`;
-        promptDiv.style.fontWeight = 'bold';
-        entryDiv.appendChild(promptDiv);
-        
-        // Create response element (truncated)
-        const responseDiv = document.createElement('div');
-        responseDiv.className = 'history-response';
-        const truncatedResponse = entry.response.length > 100 ? 
-                                 entry.response.substring(0, 100) + '...' : 
-                                 entry.response;
-        responseDiv.textContent = `A: ${truncatedResponse}`;
-        entryDiv.appendChild(responseDiv);
-        
-        // Create timestamp element
-        const timeDiv = document.createElement('div');
-        timeDiv.className = 'history-time';
-        timeDiv.textContent = formattedTime;
-        timeDiv.style.fontSize = '0.8em';
-        timeDiv.style.color = '#666';
-        entryDiv.appendChild(timeDiv);
-        
-        // Create button to reuse this prompt
-        const reuseBtn = document.createElement('button');
-        reuseBtn.textContent = 'Reuse';
-        reuseBtn.style.marginTop = '5px';
-        reuseBtn.style.padding = '3px 8px';
-        reuseBtn.addEventListener('click', () => {
-          const promptArea = document.getElementById('aiPrompt');
-          if (promptArea) {
-            promptArea.value = entry.prompt;
-            // Scroll back to prompt area
-            promptArea.scrollIntoView();
-            // Hide history
-            historyDiv.style.display = 'none';
-          }
-        });
-        entryDiv.appendChild(reuseBtn);
-        
-        // Add to history div
-        historyDiv.appendChild(entryDiv);
-      });
-      
-      console.log(`Loaded ${recentHistory.length} chat history entries.`);
-    });
-  } catch (error) {
-    console.error('Error loading chat history:', error);
-  }
-}
-  
-  /**
-   * Populates the project select dropdown with available projects
-   * @param {HTMLSelectElement} selectEl - The select element to populate
-   * @param {Array} projects - Array of project objects
-   */
-  function populateProjectSelect(selectEl, projects) {
-    // Clear existing options
-    while (selectEl.firstChild) {
-      selectEl.removeChild(selectEl.firstChild);
-    }
-    
-    // Add default option
-    const defaultOpt = document.createElement("option");
-    defaultOpt.value = "";
-    defaultOpt.textContent = "-- No project selected --";
-    selectEl.appendChild(defaultOpt);
-    
-    // Add projects
-    if (Array.isArray(projects)) {
-      projects.forEach(project => {
-        const opt = document.createElement("option");
-        opt.value = project.id;
-        opt.textContent = project.name;
-        selectEl.appendChild(opt);
-      });
-    }
-    
-    // Set active project if one exists
-    if (activeProject) {
-      selectEl.value = activeProject;
-    }
-  }
-  
-  /**
-   * Creates a new project and saves it to storage
-   * @param {string} name - The name of the project
-   * @returns {Promise<string>} The ID of the created project
-   */
-  async function createNewProject(name) {
-    return new Promise((resolve, reject) => {
-      try {
-        chrome.storage.local.get(['aisolveall_projects'], function(result) {
-          const projects = result.aisolveall_projects || [];
-          
-          // Create a new project with a unique ID
-          const projectId = 'proj_' + Date.now();
-          const newProject = {
-            id: projectId,
-            name: name,
-            created: new Date().toISOString(),
-            context: "",
-            history: []
-          };
-          
-          // Add to projects array
-          projects.push(newProject);
-          
-          // Save updated projects
-          chrome.storage.local.set({ 'aisolveall_projects': projects }, function() {
-            console.log("New project created:", newProject);
-            resolve(projectId);
-          });
-        });
-      } catch (error) {
-        console.error("Error creating project:", error);
-        reject(error);
-      }
-    });
-  }
-  
-  /**
-   * Gets the context for a project
-   * @param {string} projectId - The ID of the project
-   * @returns {Promise<string>} The project context
-   */
-  async function getProjectContext(projectId) {
-    return new Promise((resolve, reject) => {
-      try {
-        chrome.storage.local.get(['aisolveall_projects'], function(result) {
-          const projects = result.aisolveall_projects || [];
-          const project = projects.find(p => p.id === projectId);
-          
-          if (project) {
-            // Return the context + a summary of recent history
-            let context = project.context || "";
-            
-            // Add recent history if available
-            if (project.history && project.history.length > 0) {
-              const recentHistory = project.history.slice(-5); // Last 5 interactions
-              const historyText = recentHistory.map(h => 
-                `User: ${h.prompt}\nAI: ${h.response}`
-              ).join("\n\n");
-              
-              if (historyText) {
-                context += "\n\nRecent conversation history:\n" + historyText;
-              }
-            }
-            
-            resolve(context);
-          } else {
-            reject(new Error("Project not found"));
-          }
-        });
-      } catch (error) {
-        console.error("Error getting project context:", error);
-        reject(error);
-      }
-    });
-  }
-  
-  /**
-   * Appends a prompt and response to a project's history
-   * @param {string} projectId - The ID of the project
-   * @param {string} prompt - The user prompt
-   * @param {string} response - The AI response
-   * @returns {Promise<void>}
-   */
-  async function appendProjectHistory(projectId, prompt, response) {
-    return new Promise((resolve, reject) => {
-      try {
-        chrome.storage.local.get(['aisolveall_projects'], function(result) {
-          const projects = result.aisolveall_projects || [];
-          const projectIndex = projects.findIndex(p => p.id === projectId);
-          
-          if (projectIndex >= 0) {
-            // Initialize history array if it doesn't exist
-            if (!projects[projectIndex].history) {
-              projects[projectIndex].history = [];
-            }
-            
-            // Add new history entry
-            projects[projectIndex].history.push({
-              timestamp: new Date().toISOString(),
-              prompt: prompt,
-              response: response
-            });
-            
-            // Save updated projects
-            chrome.storage.local.set({ 'aisolveall_projects': projects }, function() {
-              console.log("Project history updated for:", projectId);
-              resolve();
-            });
-          } else {
-            reject(new Error("Project not found"));
-          }
-        });
-      } catch (error) {
-        console.error("Error appending project history:", error);
-        reject(error);
-      }
-    });
-  }
-  
-  /**
-   * Saves a prompt and response to the global chat history
-   * @param {string} prompt - The user prompt
-   * @param {string} response - The AI response
-   * @returns {Promise<void>}
-   */
-  async function saveChatHistory(prompt, response) {
-    return new Promise((resolve, reject) => {
-      try {
-        chrome.storage.local.get(['aisolveall_chat_history'], function(result) {
-          const history = result.aisolveall_chat_history || [];
-          
-          // Add new history entry
-          history.push({
-            timestamp: new Date().toISOString(),
-            prompt: prompt,
-            response: response
-          });
-          
-          // Limit history to last 100 entries to avoid storage limits
-          const limitedHistory = history.slice(-100);
-          
-          // Save updated history
-          chrome.storage.local.set({ 'aisolveall_chat_history': limitedHistory }, function() {
-            console.log("Chat history updated.");
-            resolve();
-          });
-        });
-      } catch (error) {
-        console.error("Error saving chat history:", error);
-        reject(error);
-      }
-    });
-  }
-  
-  /**
-   * Loads and displays the global chat history
-   * @returns {Promise<void>}
-   */
-  async function loadChatHistory() {
-    return new Promise((resolve, reject) => {
-      try {
-        chrome.storage.local.get(['aisolveall_chat_history'], function(result) {
-          const history = result.aisolveall_chat_history || [];
-          const historyDiv = document.getElementById("chatHistory");
-          
-          if (!historyDiv) {
-            reject(new Error("History div not found"));
-            return;
-          }
-          
-          // Clear existing history
-          historyDiv.innerHTML = "";
-          
-          if (history.length === 0) {
-            historyDiv.textContent = "No chat history yet.";
-            resolve();
-            return;
-          }
-          
-          // Display history (most recent first)
-          history.reverse().forEach((item, index) => {
-            const historyItem = document.createElement("div");
-            historyItem.className = "aisolveall-chat-history-item";
-            
-            // Format timestamp
-            const timestamp = new Date(item.timestamp);
-            const formattedDate = timestamp.toLocaleDateString();
-            const formattedTime = timestamp.toLocaleTimeString();
-            
-            // Create elements for each part
-            const dateEl = document.createElement("div");
-            dateEl.textContent = `${formattedDate} ${formattedTime}`;
-            dateEl.style.fontSize = "0.8em";
-            dateEl.style.color = "#666";
-            
-            const promptEl = document.createElement("div");
-            promptEl.className = "aisolveall-chat-history-prompt";
-            promptEl.textContent = item.prompt;
-            
-            const responseEl = document.createElement("div");
-            responseEl.className = "aisolveall-chat-history-response";
-            responseEl.textContent = item.response;
-            
-            // Add "Use This Chat" button
-            const useBtn = document.createElement("button");
-            useBtn.textContent = "Use This Chat";
-            useBtn.className = "aisolveall-button";
-            useBtn.style.marginTop = "5px";
-            useBtn.style.fontSize = "0.8em";
-            
-            useBtn.addEventListener("click", () => {
-              const promptArea = document.getElementById("aiPrompt");
-              const responseDiv = document.getElementById("aiResponse");
-              
-              if (promptArea && responseDiv) {
-                promptArea.value = item.prompt;
-                responseDiv.textContent = item.response;
-              }
-            });
-            
-            // Add all elements to the history item
-            historyItem.appendChild(dateEl);
-            historyItem.appendChild(promptEl);
-            historyItem.appendChild(responseEl);
-            historyItem.appendChild(useBtn);
-            
-            // Add history item to history div
-            historyDiv.appendChild(historyItem);
-          });
-          
-          resolve();
-        });
-      } catch (error) {
-        console.error("Error loading chat history:", error);
-        reject(error);
-      }
-    });
-  }
-  
-  /**
-   * Sends a prompt to the specified AI provider
-   * @param {string} provider - The provider to use (openai, anthropic, gemini, perplexity)
-   * @param {string} prompt - The prompt to send
-   * @param {string} model - The model to use (for OpenAI)
-   * @returns {Promise<string>} The AI response
-   */
   // === Provider API Call Function ===
-async function sendQueryToProvider(provider, prompt, model) {
-  try {
-    // Get the API key for the selected provider
-    const apiKey = await getApiKey(provider);
-    
-    if (!apiKey) {
-      throw new Error(`API key for ${provider} not found. Please check api-keys.json file.`);
-    }
-    
-    let response;
-    
-    // Handle different providers
-    if (provider === 'openai') {
-      const openaiResponse = await fetch('https://api.openai.com/v1/chat/completions', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${apiKey}`
-        },
-        body: JSON.stringify({
-          model: model || 'gpt-3.5-turbo',
-          messages: [{ role: 'user', content: prompt }],
-          max_tokens: 500,
-          temperature: 0.7
-        })
-      });
-      
-      if (!openaiResponse.ok) {
-        const errorText = await openaiResponse.text();
-        throw new Error(`OpenAI API error (${openaiResponse.status}): ${errorText}`);
-      }
-      
-      const data = await openaiResponse.json();
-      return data.choices[0].message.content;
-    } 
-    
-    else if (provider === 'anthropic') {
-      const anthropicResponse = await fetch('https://api.anthropic.com/v1/messages', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'x-api-key': apiKey,
-          'anthropic-version': '2023-06-01'
-        },
-        body: JSON.stringify({
-          model: 'claude-3-opus-20240229',
-          max_tokens: 500,
-          messages: [{ role: 'user', content: prompt }]
-        })
-      });
-      
-      if (!anthropicResponse.ok) {
-        const errorText = await anthropicResponse.text();
-        throw new Error(`Anthropic API error (${anthropicResponse.status}): ${errorText}`);
-      }
-      
-      const data = await anthropicResponse.json();
-      return data.content[0].text;
-    }
-    
-    else if (provider === 'gemini') {
-      // Placeholder - replace with actual Gemini implementation
-      return "Gemini integration not fully implemented yet.";
-    }
-    
-    else if (provider === 'perplexity') {
-      // Placeholder - replace with actual Perplexity implementation
-      return "Perplexity integration not fully implemented yet.";
-    }
-    
-    else {
-      throw new Error(`Unknown provider: ${provider}`);
-    }
-  } catch (error) {
-    console.error('Error in sendQueryToProvider:', error);
-    throw error; // Re-throw to be handled by the caller
-  }
-}
-
-// Fetch ElevenLabs voices and populate dropdown
-async function fetchElevenLabsVoices(voiceSelect) {
-  try {
-    // Clear existing options
-    voiceSelect.innerHTML = '';
-    
-    const elevenlabsKey = await getApiKey('elevenlabs');
-    
-    if (!elevenlabsKey) {
-      throw new Error("ElevenLabs API key not found");
-    }
-    
-    const response = await fetch(ELEVENLABS_VOICES_ENDPOINT, {
-      method: 'GET',
-      headers: {
-        'xi-api-key': elevenlabsKey
-      }
-    });
-    
-    if (!response.ok) {
-      throw new Error("Error fetching ElevenLabs voices: " + response.statusText);
-    }
-    
-    const data = await response.json();
-    
-    // Add voices to dropdown
-    data.voices.forEach(voice => {
-      const opt = document.createElement('option');
-      opt.value = voice.voice_id;
-      opt.textContent = voice.name;
-      voiceSelect.appendChild(opt);
-    });
-    
-    console.log(`Loaded ${data.voices.length} ElevenLabs voices.`);
-  } catch (error) {
-    console.error('Error fetching ElevenLabs voices:', error);
-    
-    // Add a default option to indicate the error
-    const opt = document.createElement('option');
-    opt.value = '';
-    opt.textContent = 'Error loading voices';
-    voiceSelect.appendChild(opt);
-  }
-}
-
-// Helper function to sanitize text for voice synthesis
-function sanitizeTextForVoice(text) {
-  // Limit length to prevent timeouts or errors
-  if (text.length > 5000) {
-    text = text.substring(0, 5000) + '... (text truncated for voice synthesis)';
-  }
-  
-  // Remove any problematic characters or formatting
-  text = text.replace(/\n\n+/g, '\n\n') // Reduce multiple line breaks
-             .replace(/\s+/g, ' ') // Reduce multiple spaces
-             .replace(/[^\w\s.,?!;:'\"-]/g, ''); // Remove special characters
-  
-  return text;
-}
-  
-  /**
-   * Calls the OpenAI API
-   * @param {string} apiKey - The OpenAI API key
-   * @param {string} prompt - The prompt to send
-   * @param {string} model - The model to use
-   * @returns {Promise<string>} The AI response
-   */
-  async function callOpenAI(apiKey, prompt, model = "gpt-3.5-turbo") {
+  async function sendQueryToProvider(provider, prompt, model) {
     try {
-      const response = await fetch(OPENAI_ENDPOINT, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "Authorization": `Bearer ${apiKey}`
-        },
-        body: JSON.stringify({
-          model: model,
-          messages: [{ role: "user", content: prompt }],
-          max_tokens: 1000,
-          temperature: 0.7
-        })
-      });
+      // Get the API key for the selected provider
+      const apiKey = await getApiKey(provider);
       
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        throw new Error(`OpenAI API error: ${response.status} ${response.statusText}. ${errorData.error?.message || ''}`);
-      }
-      
-      const data = await response.json();
-      return data.choices[0].message.content;
-    } catch (error) {
-      console.error("Error calling OpenAI API:", error);
-      throw error;
-    }
-  }
-  
-  /**
-   * Calls the Anthropic API
-   * @param {string} apiKey - The Anthropic API key
-   * @param {string} prompt - The prompt to send
-   * @returns {Promise<string>} The AI response
-   */
-  async function callAnthropic(apiKey, prompt) {
-    try {
-      const response = await fetch(ANTHROPIC_ENDPOINT, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "x-api-key": apiKey,
-          "anthropic-version": "2023-06-01"
-        },
-        body: JSON.stringify({
-          model: "claude-2",
-          max_tokens_to_sample: 1000,
-          messages: [
-            { role: "user", content: prompt }
-          ]
-        })
-      });
-      
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        throw new Error(`Anthropic API error: ${response.status} ${response.statusText}. ${errorData.error?.message || ''}`);
-      }
-      
-      const data = await response.json();
-      return data.content[0].text;
-    } catch (error) {
-      console.error("Error calling Anthropic API:", error);
-      throw error;
-    }
-  }
-  
-  /**
-   * Calls the Gemini API
-   * @param {string} apiKey - The Gemini API key
-   * @param {string} prompt - The prompt to send
-   * @returns {Promise<string>} The AI response
-   */
-  async function callGemini(apiKey, prompt) {
-    try {
-      const response = await fetch(`${GEMINI_ENDPOINT}?key=${apiKey}`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json"
-        },
-        body: JSON.stringify({
-          contents: [
-            {
-              parts: [
-                { text: prompt }
-              ]
-            }
-          ],
-          generationConfig: {
-            temperature: 0.7,
-            maxOutputTokens: 1000
-          }
-        })
-      });
-      
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        throw new Error(`Gemini API error: ${response.status} ${response.statusText}. ${errorData.error?.message || ''}`);
-      }
-      
-      const data = await response.json();
-      return data.candidates[0].content.parts[0].text;
-    } catch (error) {
-      console.error("Error calling Gemini API:", error);
-      throw error;
-    }
-  }
-  
-  /**
-   * Calls the Perplexity API
-   * @param {string} apiKey - The Perplexity API key
-   * @param {string} prompt - The prompt to send
-   * @returns {Promise<string>} The AI response
-   */
-  async function callPerplexity(apiKey, prompt) {
-    try {
-      const response = await fetch(PERPLEXITY_ENDPOINT, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "Authorization": `Bearer ${apiKey}`
-        },
-        body: JSON.stringify({
-          model: "llama-3-sonar-large-32k-online",
-          messages: [
-            { role: "user", content: prompt }
-          ],
-          max_tokens: 1000
-        })
-      });
-      
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        throw new Error(`Perplexity API error: ${response.status} ${response.statusText}. ${errorData.error?.message || ''}`);
-      }
-      
-      const data = await response.json();
-      return data.choices[0].message.content;
-    } catch (error) {
-      console.error("Error calling Perplexity API:", error);
-      throw error;
-    }
-  }
-  
-  // Start initialization when the script is loaded
-  initialize();
-  
-})();
+      if (!apiKey) {
+        throw new Error(`API key for ${provider} not found. Please check api-keys.json file.`);
+      }}
