@@ -1,42 +1,57 @@
 {
-    "manifest_version": 3,
-    "name": "Aisolveall Assistant",
-    "version": "1.2",
-    "description": "A multi-provider ChatGPT assistant with enhanced security, multi-project support, and voice assistant integration (supports OpenAI, Anthropic, Gemini, Perplexity).",
-    "permissions": [
-      "scripting",
-      "activeTab",
-      "storage",
-      "contextMenus",
-      "clipboardWrite",
-      "notifications",
-      "tts",
-      "tabs"
-    ],
-    "host_permissions": [
-      "https://mail.google.com/*",
-      "https://docs.google.com/*",
-      "https://api.openai.com/*",
-      "https://*/*",
-      "file://*/*"
-    ],
-    "background": {
-      "service_worker": "background.js"
-    },
-    "action": {
-      "default_popup": "popup.html",
-      "default_icon": "icon.png"
-    },
-    "content_security_policy": {
-      "extension_pages": "script-src 'self'; object-src 'self';"
-    },
-    "commands": {
-      "toggle-sidebar": {
-        "suggested_key": {
-          "default": "Ctrl+Shift+A"
-        },
-        "description": "Toggle Aisolveall Sidebar"
-      }
+  "manifest_version": 3,
+  "name": "Aisolveall Assistant",
+  "version": "1.2",
+  "description": "A multi-provider ChatGPT assistant with enhanced security, multi-project support, and voice assistant integration (supports OpenAI, Anthropic, Gemini, Perplexity).",
+  "permissions": [
+    "scripting",
+    "activeTab",
+    "storage",
+    "contextMenus",
+    "clipboardWrite",
+    "notifications",
+    "tts",
+    "tabs"
+  ],
+  "host_permissions": [
+    "https://mail.google.com/*",
+    "https://docs.google.com/*",
+    "https://api.openai.com/*",
+    "https://api.anthropic.com/*",
+    "https://generativelanguage.googleapis.com/*",
+    "https://api.perplexity.ai/*",
+    "https://api.elevenlabs.io/*",
+    "https://*/*",
+    "file:///*"
+  ],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "action": {
+    "default_popup": "popup.html",
+    "default_icon": "icon.png"
+  },
+  "content_scripts": [
+    {
+      "matches": ["<all_urls>"],
+      "js": ["api-keys-loader.js", "content.js"]
     }
+  ],
+  "web_accessible_resources": [
+    {
+      "resources": ["api-keys.json"],
+      "matches": ["<all_urls>"]
+    }
+  ],
+  "content_security_policy": {
+    "extension_pages": "script-src 'self'; object-src 'self';"
+  },
+  "commands": {
+    "toggle-sidebar": {
+      "suggested_key": {
+        "default": "Ctrl+Shift+A"
+      },
+      "description": "Toggle Aisolveall Sidebar"
+    }
+  }
 }
-  
