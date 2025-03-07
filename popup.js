@@ -1,95 +1,133 @@
-// Initialize the extension on installation
-chrome.runtime.onInstalled.addListener(async () => {
-  console.log("Aisolveall Assistant installed");
+document.addEventListener('DOMContentLoaded', function() {
+  // UI elements
+  const promptInput = document.getElementById('prompt');
+  const sendButton = document.getElementById('send');
+  const responseDiv = document.getElementById('response');
+  const providerSelect = document.getElementById('provider');
+  const modelSelect = document.getElementById('model');
+  const loadingSpinner = document.getElementById('loading');
+  const toggleSidebarButton = document.getElementById('toggleSidebar');
   
-  // Create a context menu item for summarizing text
-  chrome.contextMenus.create({
-    id: "summarize",
-    title: "Summarize with Aisolveall",
-    contexts: ["selection"]
+  // Show/hide model selection based on provider
+  providerSelect.addEventListener('change', function() {
+    if (providerSelect.value === 'openai') {
+      modelSelect.style.display = 'block';
+    } else {
+      modelSelect.style.display = 'none';
+    }
   });
   
-  // Load API keys
-  try {
-    const response = await fetch(chrome.runtime.getURL('api-keys.json'));
-    if (!response.ok) {
-      throw new Error(`Failed to load API keys: ${response.status} ${response.statusText}`);
-    }
-    
-    const keys = await response.json();
-    console.log('API keys loaded successfully in background script');
-  } catch (error) {
-    console.error('Error loading API keys in background script:', error);
-  }
-});
-
-// Handle context menu clicks
-chrome.contextMenus.onClicked.addListener((info, tab) => {
-  if (info.menuItemId === "summarize" && info.selectionText) {
-    chrome.tabs.sendMessage(tab.id, {
-      action: "summarize",
-      selectedText: info.selectionText
-    });
-  }
-});
-
-// Listen for keyboard commands
-chrome.commands.onCommand.addListener((command) => {
-  if (command === "toggle-sidebar") {
-    chrome.tabs.query({active: true, currentWindow: true}, (tabs) => {
+  // Toggle sidebar when button is clicked
+  toggleSidebarButton.addEventListener('click', function() {
+    chrome.tabs.query({active: true, currentWindow: true}, function(tabs) {
       chrome.tabs.sendMessage(tabs[0].id, {action: "toggleSidebar"});
     });
-  }
-});
-
-// Handle messages from content scripts or popup
-chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
-  if (request.action === "callOpenAI") {
-    // Load API keys first
-    fetch(chrome.runtime.getURL('api-keys.json'))
-      .then(response => response.json())
-      .then(keys => {
-        // Now make the API call with the loaded keys
-        return fetch("https://api.openai.com/v1/chat/completions", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            "Authorization": `Bearer ${keys.openai}`
-          },
-          body: JSON.stringify({
-            model: request.model || "gpt-3.5-turbo",
-            messages: [{ role: "user", content: request.prompt }],
-            max_tokens: 500,
-            temperature: 0.7
-          })
-        });
-      })
-      .then(response => {
-        if (!response.ok) {
-          throw new Error("Network response was not ok: " + response.statusText);
-        }
-        return response.json();
-      })
-      .then(data => {
-        sendResponse({success: true, data: data});
-      })
-      .catch(error => {
-        sendResponse({success: false, error: error.message});
-      });
+  });
+  
+  // Send prompt when button is clicked
+  sendButton.addEventListener('click', async function() {
+    const prompt = promptInput.value.trim();
+    if (!prompt) {
+      alert('Please enter a prompt');
+      return;
+    }
     
-    return true; // Important! Keeps the message channel open for async response
+    const provider = providerSelect.value;
+    const model = modelSelect.value;
+    
+    // Show loading spinner
+    loadingSpinner.classList.remove('hidden');
+    responseDiv.textContent = 'Loading...';
+    
+    try {
+      // Load API key first using our api-keys-loader.js utility
+      const apiKey = await getApiKey(provider);
+      
+      if (!apiKey) {
+        throw new Error(`API key for ${provider} not found. Please check api-keys.json file.`);
+      }
+      
+      let response;
+      
+      // Different handling for each provider
+      if (provider === 'openai') {
+        response = await sendToOpenAI(prompt, model, apiKey);
+      } else if (provider === 'anthropic') {
+        response = await sendToAnthropic(prompt, apiKey);
+      } else if (provider === 'gemini') {
+        response = await sendToGemini(prompt, apiKey);
+      } else if (provider === 'perplexity') {
+        response = await sendToPerplexity(prompt, apiKey);
+      }
+      
+      // Display response
+      responseDiv.textContent = response;
+    } catch (error) {
+      console.error('Error:', error);
+      responseDiv.textContent = 'Error: ' + error.message;
+    } finally {
+      // Hide loading spinner
+      loadingSpinner.classList.add('hidden');
+    }
+  });
+  
+  // OpenAI API call
+  async function sendToOpenAI(prompt, model, apiKey) {
+    const response = await fetch('https://api.openai.com/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${apiKey}`
+      },
+      body: JSON.stringify({
+        model: model || 'gpt-3.5-turbo',
+        messages: [{ role: 'user', content: prompt }],
+        max_tokens: 500,
+        temperature: 0.7
+      })
+    });
+    
+    if (!response.ok) {
+      throw new Error('Network response was not ok: ' + response.statusText);
+    }
+    
+    const data = await response.json();
+    return data.choices[0].message.content;
   }
   
-  if (request.action === "getApiKey") {
-    fetch(chrome.runtime.getURL('api-keys.json'))
-      .then(response => response.json())
-      .then(keys => {
-        sendResponse({success: true, key: keys[request.provider]});
+  // Anthropic API call (placeholder)
+  async function sendToAnthropic(prompt, apiKey) {
+    const response = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': apiKey,
+        'anthropic-version': '2023-06-01'
+      },
+      body: JSON.stringify({
+        model: 'claude-3-opus-20240229',
+        max_tokens: 500,
+        messages: [{ role: 'user', content: prompt }]
       })
-      .catch(error => {
-        sendResponse({success: false, error: error.message});
-      });
+    });
     
-    return true; // Keep the message channel open
+    if (!response.ok) {
+      throw new Error('Network response was not ok: ' + response.statusText);
+    }
+    
+    const data = await response.json();
+    return data.content[0].text;
+  }
+  
+  // Gemini API call (placeholder)
+  async function sendToGemini(prompt, apiKey) {
+    // Implement actual Gemini API call
+    return "Gemini API integration not fully implemented yet.";
+  }
+  
+  // Perplexity API call (placeholder)
+  async function sendToPerplexity(prompt, apiKey) {
+    // Implement actual Perplexity API call
+    return "Perplexity API integration not fully implemented yet.";
   }
 });
