@@ -217,6 +217,22 @@ document.addEventListener('DOMContentLoaded', () => {
     // For now, just show a message
     alert('History functionality will be implemented in a future version.');
   }
+
+  // Wait for API keys to load
+async function initializeApiKeys() {
+  try {
+    if (typeof ApiKeysManager !== 'undefined') {
+      await ApiKeysManager.loadApiKeys();
+    } else {
+      console.error("ApiKeysManager not available in popup");
+    }
+  } catch (error) {
+    console.error("Error loading API keys:", error);
+  }
+}
+
+// Call this before making any API requests
+document.addEventListener('DOMContentLoaded', initializeApiKeys);
   
   /**
    * Check API keys status

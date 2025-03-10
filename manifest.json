@@ -32,12 +32,37 @@
   "content_scripts": [
     {
       "matches": ["<all_urls>"],
-      "js": ["api-keys-loader.js", "content.js"]
+      "js": [
+        "js/api/api-keys-manager.js",
+        "js/api/providers/openai.js",
+        "js/api/providers/anthropic.js",
+        "js/api/providers/gemini.js", 
+        "js/api/providers/perplexity.js",
+        "js/api/api-manager.js",
+        
+        
+        "js/core/utils.js",
+        
+        "js/ui/ui-helper.js",
+        "js/ui/ui-components.js",
+        "js/ui/event-handlers.js",
+        
+        "js/features/projects/project-manager.js",
+        "js/features/history/history-manager.js",
+        "js/features/voice/voice-manager.js",
+        "js/features/integrations/google-docs-manager.js",
+        
+        "js/core/app.js",
+        "js/content-script.js"
+      ],
+      "css": [
+        "css/aisolveall-styles.css"
+      ]
     }
   ],
   "web_accessible_resources": [
     {
-      "resources": ["api-keys.json", "aisolveall-styles.css"],
+      "resources": ["api-keys.json", "css/aisolveall-styles.css"],
       "matches": ["<all_urls>"]
     }
   ],
