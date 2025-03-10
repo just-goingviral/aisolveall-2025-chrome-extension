@@ -1,0 +1,241 @@
+/**
+ * Aisolveall Assistant - Styles
+ * 
+ * This file contains all the CSS styles for the Aisolveall Assistant sidebar
+ * and floating button.
+ */
+
+/* Sidebar Base Styles */
+#aisolveall-sidebar {
+  position: fixed;
+  top: 0;
+  right: 0;
+  width: 350px;
+  height: 100%;
+  background-color: #fff;
+  border-left: 1px solid #ccc;
+  z-index: 10000;
+  box-shadow: 0 0 10px rgba(0,0,0,0.2);
+  overflow: auto;
+  resize: horizontal;
+  padding: 10px;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  transition: background-color 0.3s ease, color 0.3s ease;
+}
+
+/* Button Styles */
+#aisolveall-sidebar button {
+  padding: 8px;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  color: #fff;
+  margin-bottom: 5px;
+  transition: background-color 0.2s ease;
+}
+
+#aisolveall-sidebar button:hover {
+  opacity: 0.9;
+}
+
+#aisolveall-sidebar button:active {
+  transform: translateY(1px);
+}
+
+#aisolveall-sidebar .action-button {
+  background-color: #4285f4;
+}
+
+#aisolveall-sidebar .secondary-button {
+  background-color: #5cb85c;
+}
+
+#aisolveall-sidebar .warning-button {
+  background-color: #f0ad4e;
+}
+
+#aisolveall-sidebar .danger-button {
+  background-color: #d9534f;
+}
+
+#aisolveall-sidebar .full-width-button {
+  width: 100%;
+}
+
+/* Input Styles */
+#aisolveall-sidebar select,
+#aisolveall-sidebar input,
+#aisolveall-sidebar textarea {
+  width: 100%;
+  padding: 8px;
+  margin-bottom: 10px;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  font-family: inherit;
+  transition: border-color 0.2s ease;
+}
+
+#aisolveall-sidebar select:focus,
+#aisolveall-sidebar input:focus,
+#aisolveall-sidebar textarea:focus {
+  border-color: #4285f4;
+  outline: none;
+  box-shadow: 0 0 3px rgba(66, 133, 244, 0.3);
+}
+
+/* Floating Chat Button */
+#aisolveall-chat-button {
+  position: fixed;
+  bottom: 10px;
+  right: 10px;
+  z-index: 10000;
+  padding: 10px 20px;
+  background-color: #4285f4;
+  color: #fff;
+  border: none;
+  border-radius: 5px;
+  cursor: pointer;
+  font-family: inherit;
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
+  transition: background-color 0.2s;
+}
+
+#aisolveall-chat-button:hover {
+  background-color: #3367d6;
+}
+
+/* History Item Styles */
+.history-item {
+  margin-bottom: 10px;
+  padding-bottom: 5px;
+  border-bottom: 1px dashed #ccc;
+}
+
+/* Loading Spinner */
+#ttsSpinner {
+  margin-left: 5px;
+  display: inline-block;
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+/* Response Area */
+#aiResponse {
+  margin-top: 10px;
+  white-space: pre-wrap;
+  border-top: 1px solid #ccc;
+  padding-top: 10px;
+  max-height: 300px;
+  overflow-y: auto;
+}
+
+/* Header Layout */
+.sidebar-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 10px;
+}
+
+/* Flexible Button Row */
+.button-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+  margin-bottom: 10px;
+}
+
+/* Voice Controls */
+.voice-controls {
+  display: flex;
+  gap: 3%;
+  margin-bottom: 10px;
+}
+
+.voice-controls button {
+  flex: 1;
+}
+
+.voice-parameters {
+  display: flex;
+  gap: 4%;
+  margin-bottom: 10px;
+}
+
+.voice-parameters input {
+  flex: 1;
+}
+
+/* Section Headers */
+.section-header {
+  font-weight: bold;
+  margin: 15px 0 5px 0;
+  padding-bottom: 3px;
+  border-bottom: 1px solid #eee;
+}
+
+/* Provider Section */
+.provider-section {
+  margin-bottom: 15px;
+}
+
+/* Project Section */
+.project-section {
+  margin-bottom: 15px;
+}
+
+/* Dark Mode Styles */
+#aisolveall-sidebar.dark-mode {
+  background-color: #333;
+  color: #fff;
+}
+
+#aisolveall-sidebar.dark-mode button {
+  background-color: #555;
+}
+
+#aisolveall-sidebar.dark-mode .section-header {
+  border-bottom-color: #555;
+}
+
+#aisolveall-sidebar.dark-mode select,
+#aisolveall-sidebar.dark-mode input,
+#aisolveall-sidebar.dark-mode textarea {
+  background-color: #444;
+  color: #fff;
+  border-color: #666;
+}
+
+#aisolveall-sidebar.dark-mode .action-button {
+  background-color: #4285f4;
+}
+
+#aisolveall-sidebar.dark-mode .secondary-button {
+  background-color: #5cb85c;
+}
+
+#aisolveall-sidebar.dark-mode .warning-button {
+  background-color: #f0ad4e;
+}
+
+#aisolveall-sidebar.dark-mode .danger-button {
+  background-color: #d9534f;
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+  #aisolveall-sidebar {
+    width: 300px;
+  }
+}
+
+@media (max-width: 480px) {
+  #aisolveall-sidebar {
+    width: 100%;
+    right: 0;
+  }
+}

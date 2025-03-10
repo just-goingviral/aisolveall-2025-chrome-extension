@@ -1,0 +1,7 @@
+{
+  "openai": "YOUR_OPENAI_API_KEY",
+  "anthropic": "YOUR_ANTHROPIC_API_KEY",
+  "gemini": "YOUR_GEMINI_API_KEY",
+  "perplexity": "YOUR_PERPLEXITY_API_KEY",
+  "elevenlabs": "YOUR_ELEVENLABS_API_KEY"
+}

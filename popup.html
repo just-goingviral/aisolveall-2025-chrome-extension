@@ -1,40 +1,188 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-  <meta charset="UTF-8" />
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Aisolveall Assistant</title>
+  <link rel="stylesheet" href="css/aisolveall-styles.css">
   <style>
     body {
-      font-family: sans-serif;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
       margin: 0;
-      padding: 10px;
-      width: 300px;
+      padding: 15px;
+      width: 350px;
+      color: #333;
     }
+    
+    h2 {
+      margin-top: 0;
+      color: #4285f4;
+      font-size: 18px;
+    }
+    
+    .section {
+      margin-bottom: 15px;
+    }
+    
+    .section-title {
+      font-weight: bold;
+      margin-bottom: 5px;
+      padding-bottom: 3px;
+      border-bottom: 1px solid #eee;
+    }
+    
     #prompt {
       width: 100%;
-      height: 60px;
+      min-height: 80px;
+      resize: vertical;
+      padding: 8px;
+      border: 1px solid #ccc;
+      border-radius: 4px;
+      margin-bottom: 10px;
+      font-family: inherit;
+    }
+    
+    button {
+      padding: 8px 12px;
+      background-color: #4285f4;
+      color: white;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+      transition: background-color 0.2s;
+    }
+    
+    button:hover {
+      background-color: #3367d6;
+    }
+    
+    .button-row {
+      display: flex;
+      gap: 8px;
       margin-bottom: 10px;
     }
+    
+    .full-width {
+      width: 100%;
+    }
+    
     #response {
       margin-top: 10px;
       white-space: pre-wrap;
-    }
-    button {
-      padding: 8px 16px;
-      background-color: #4285f4;
-      border: none;
-      color: #fff;
+      max-height: 200px;
+      overflow-y: auto;
+      padding: 8px;
+      border: 1px solid #eee;
       border-radius: 4px;
-      cursor: pointer;
+      background-color: #f9f9f9;
+    }
+    
+    #loading {
+      display: inline-block;
+      width: 16px;
+      height: 16px;
+      border: 2px solid rgba(0, 0, 0, 0.1);
+      border-radius: 50%;
+      border-top-color: #4285f4;
+      animation: spin 1s ease infinite;
+      margin-left: 10px;
+      vertical-align: middle;
+    }
+    
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+    
+    .hidden {
+      display: none;
+    }
+    
+    /* Provider selector */
+    #provider {
+      width: 100%;
+      padding: 8px;
+      border: 1px solid #ccc;
+      border-radius: 4px;
+      margin-bottom: 10px;
+    }
+    
+    #model {
+      width: 100%;
+      padding: 8px;
+      border: 1px solid #ccc;
+      border-radius: 4px;
+      margin-bottom: 10px;
+    }
+    
+    .stats {
+      font-size: 12px;
+      color: #666;
+      margin-top: 10px;
+      text-align: center;
+    }
+    
+    #toggleSidebar {
+      background-color: #5cb85c;
+    }
+    
+    .secondary-button {
+      background-color: #5cb85c;
+    }
+    
+    hr {
+      border: 0;
+      height: 1px;
+      background-color: #eee;
+      margin: 15px 0;
     }
   </style>
 </head>
 <body>
-  <h3>Aisolveall ChatGPT</h3>
-  <textarea id="prompt" placeholder="Your question..."></textarea>
-  <button id="send">Send</button>
-  <div id="response"></div>
+  <h2>Aisolveall Assistant</h2>
+  
+  <div class="section">
+    <div class="section-title">Provider</div>
+    <select id="provider">
+      <option value="openai">OpenAI (GPT)</option>
+      <option value="anthropic">Anthropic (Claude)</option>
+      <option value="gemini">Google (Gemini)</option>
+      <option value="perplexity">Perplexity</option>
+    </select>
+    
+    <select id="model" class="openai-option">
+      <option value="gpt-3.5-turbo">GPT-3.5 Turbo</option>
+      <option value="gpt-4">GPT-4</option>
+    </select>
+  </div>
+  
+  <div class="section">
+    <div class="section-title">Quick Chat</div>
+    <textarea id="prompt" placeholder="Enter your question..."></textarea>
+    <div class="button-row">
+      <button id="send" class="full-width">Send</button>
+      <span id="loading" class="hidden"></span>
+    </div>
+  </div>
+  
+  <div id="response" class="hidden"></div>
+  
+  <hr>
+  
+  <div class="button-row">
+    <button id="toggleSidebar" class="full-width">Open Full Assistant</button>
+  </div>
+  
+  <div class="button-row">
+    <button id="settings" class="secondary-button">Settings</button>
+    <button id="viewHistory" class="secondary-button">History</button>
+  </div>
+  
+  <div class="stats">
+    <span id="apiStatus">API Keys: Checking...</span>
+  </div>
 
+  <!-- Load scripts in correct order -->
+  <script src="js/api/api-keys-manager.js"></script>
   <script src="popup.js"></script>
 </body>
 </html>
